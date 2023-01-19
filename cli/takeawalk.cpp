@@ -13,23 +13,13 @@ int runCommand(const string& command) {
     return status;
 }
 
-int main(int argc, char *argv[]) {
-    string command = "";
-    for (int i = 1; i < argc; i++) {
-        command += argv[i];
-        command += " ";
-    }
-
+string getRawPhoneNumber(string configLocation) {
     string rawPhoneNumber = "";
-
-    char *homeDir = std::getenv("HOME");
-    string configLocation = string(homeDir) + "/.tawconfig";
 
     if (filesystem::exists(configLocation)) {
         std::ifstream configFile(configLocation);
         configFile >> rawPhoneNumber;
         configFile.close();
-
     } else {
         cout << "Config file does not exist (" << configLocation << ")" << endl;
         cout << "Please enter your phone number to create it now: ";
@@ -39,10 +29,56 @@ int main(int argc, char *argv[]) {
         configFile.close();
     }
 
+    return rawPhoneNumber;
+}
+
+size_t discardData(void *buffer, size_t size, size_t nmemb, void *userp)
+{
+   return size * nmemb;
+}
+
+string generateRequest(int exitStatus, string command, string phoneNumber) {
+    string requestStr = 
+        "{\"status\" : " + to_string(exitStatus) + 
+        ", \"command\" : \"" + command + 
+        "\", \"phone\" : \"" + phoneNumber + "\"}";
+
+    return requestStr;
+}
+
+CURLcode postRequest(string requestString) {
+    const char *request = requestString.c_str();
+    int requestLength = requestString.length();
+
+    CURL *curl = curl_easy_init();
+    CURLcode res;
+
+    curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.0.158:5000");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, requestLength);
+    curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, request);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, curl_slist_append(NULL, "Content-Type: application/json; charset=utf-8"));
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discardData);
+    res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    return res;
+}
+
+int main(int argc, char *argv[]) {
+    string command = "";
+    for (int i = 1; i < argc; i++) {
+        command += argv[i];
+        command += " ";
+    }
+
+    char *homeDir = std::getenv("HOME");
+    string configLocation = string(homeDir) + "/.tawconfig";
+
+    string rawPhoneNumber = getRawPhoneNumber(configLocation);
+
     string phoneNumber = "";
 
     string phoneNumberRegex = "^\\s*(\\+\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}\\s*$";
-
     string phoneNumberUSRegex = "^\\s*(\\+0?1\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}\\s*$";
 
     if (std::regex_match(rawPhoneNumber, std::regex(phoneNumberRegex))) {
@@ -60,25 +96,15 @@ int main(int argc, char *argv[]) {
         return 1;
     };
 
-    int status = runCommand(command);
+    int exitStatus = runCommand(command);
+    
+    string request = generateRequest(exitStatus, command, phoneNumber);
 
-    string requestStr = 
-        "{\"status\" : " + to_string(status) + 
-        ", \"command\" : \"" + command + 
-        "\", \"phone\" : \"" + phoneNumber + "\"}";
-    const char* request = requestStr.c_str();
+    CURLcode res = postRequest(request);
 
-    CURL *curl;
-    curl = curl_easy_init();
-
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.0.158:5000");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, requestStr.length());
-        curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, request);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, curl_slist_append(NULL, "Content-Type: application/json; charset=utf-8"));
-        curl_easy_perform(curl);
-        curl_easy_cleanup(curl);
+    if (res != CURLE_OK) {
+        cout << "Takeawalk experienced an unknown server error: " << res << endl;
     }
 
-    return status;
+    return exitStatus;
 }

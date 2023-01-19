@@ -16,10 +16,11 @@ def log_request(phone_number):
     local maxPerDay = tonumber(redis.call('get', maxPerDayKey))
 
     if redis.call('exists', phoneKey) == 1 then
-        if redis.call('get', phoneKey) > maxPerDay then
+        if tonumber(redis.call('get', phoneKey)) > maxPerDay then
             return 0
         end
         redis.call('incr', phoneKey)
+        return 1
     else
         redis.call('set', phoneKey, 1)
         redis.call('expire', phoneKey, 86400)
@@ -52,7 +53,7 @@ def result():
 
     truncated_command = command[:20] + '...' if len(command) > 20 else command
 
-    message = 'Command completed with exit code ' + status + '.\n' + truncated_command
+    message = 'Command completed with exit code ' + str(status) + '.\n' + truncated_command
 
     if log_request(phone_number):
         send_message(phone_number, message)
