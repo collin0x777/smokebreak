@@ -7,6 +7,8 @@
 
 using namespace std;
 
+#define ENDPOINT "http://192.168.0.158:5000"
+
 int runCommand(const string& command) {
     int status = system(command.c_str());
 
@@ -53,7 +55,7 @@ CURLcode postRequest(string requestString) {
     CURL *curl = curl_easy_init();
     CURLcode res;
 
-    curl_easy_setopt(curl, CURLOPT_URL, "http://192.168.0.158:5000");
+    curl_easy_setopt(curl, CURLOPT_URL, ENDPOINT);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, requestLength);
     curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, request);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, curl_slist_append(NULL, "Content-Type: application/json; charset=utf-8"));
@@ -72,7 +74,7 @@ int main(int argc, char *argv[]) {
     }
 
     char *homeDir = std::getenv("HOME");
-    string configLocation = string(homeDir) + "/.tawconfig";
+    string configLocation = string(homeDir) + "/.sbconfig";
 
     string rawPhoneNumber = getRawPhoneNumber(configLocation);
 
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
     CURLcode res = postRequest(request);
 
     if (res != CURLE_OK) {
-        cout << "Takeawalk experienced an unknown server error: " << res << endl;
+        cout << "Smokebreak experienced an unknown server error: " << res << endl;
     }
 
     return exitStatus;

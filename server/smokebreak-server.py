@@ -5,8 +5,6 @@ import redis
 
 app = Flask(__name__)
 
-r = redis.Redis(host='localhost', port=6379, db=0)
-
 def log_request(phone_number):
 
     log_script = """
@@ -60,3 +58,10 @@ def result():
         return 'OK'
     else:
         return 'Too many requests', 429
+
+if __name__ == '__main__':
+
+    r = redis.Redis(host='localhost', port=6379, db=0)
+
+    r.set('maxPerDay', 3)
+    app.run()
